@@ -77,6 +77,30 @@ Local build (Windows PowerShell):
 
 **Licensing note:** ffmpeg is distributed under GPL/LGPL. Bundling ffmpeg into your executable may have licensing implications — be sure to include appropriate notices and comply with ffmpeg's license when distributing the bundled executable.
 
+## Storing large build artifacts with Git LFS 📦
+Large binaries like `dist/mp4_to_mp3.exe` are best stored with **Git LFS** to avoid bloating your repository.
+
+Recommended steps (run once locally):
+
+```
+# install git-lfs (one-time)
+# Windows (choco): choco install git-lfs
+# macOS (brew): brew install git-lfs
+# or from https://git-lfs.com/
+
+git lfs install
+# ensure repository has the gitattributes we added, then:
+git add .gitattributes
+git commit -m "Track dist/*.exe with Git LFS"
+
+# when you have a built exe:
+git add dist/mp4_to_mp3.exe
+git commit -m "Add built exe (LFS)"
+git push origin <your-branch>
+```
+
+Note: If you already committed a large exe to the repo history, consider using `git lfs migrate` to convert it to LFS. See https://github.com/git-lfs/git-lfs/wiki/Tutorial for more info.
+
 
 Convenience (Windows):
 
