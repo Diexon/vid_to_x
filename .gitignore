@@ -10,8 +10,6 @@ Thumbs.db
 *.mp3
 
 # Build artifacts
-/dist/
 /build/
 /*.spec
 /venv_build/
-*.exe
