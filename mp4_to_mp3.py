@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """mp4_to_mp3.py
 
-Simple command-line tool to convert MP4 files to MP3 using ffmpeg.
+Simple command-line tool to convert MP4 files to MP3 audio or re-encode to AVI using ffmpeg.
 
 No Python packages required — ffmpeg must be installed and available in PATH.
 """
@@ -28,6 +28,7 @@ def convert_file(
     bitrate: str = "192k",
     force: bool = False,
     quiet: bool = False,
+    output_format: str = "mp3",
 ) -> bool:
     ffmpeg = find_ffmpeg()
     if not ffmpeg:
@@ -42,20 +43,43 @@ def convert_file(
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        ffmpeg,
-        "-hide_banner",
-        "-loglevel",
-        "error" if quiet else "info",
-        # overwrite behavior
-        "-y" if force else "-n",
-        "-i",
-        str(in_path),
-        "-vn",  # drop video
-        "-ab",
-        bitrate,
-        str(out_path),
-    ]
+    if output_format == "mp3":
+        cmd = [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error" if quiet else "info",
+            # overwrite behavior
+            "-y" if force else "-n",
+            "-i",
+            str(in_path),
+            "-vn",  # drop video
+            "-ab",
+            bitrate,
+            str(out_path),
+        ]
+    elif output_format == "avi":
+        # Re-encode to AVI using mpeg4 + mp3 for wide compatibility
+        cmd = [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error" if quiet else "info",
+            "-y" if force else "-n",
+            "-i",
+            str(in_path),
+            "-c:v",
+            "mpeg4",
+            "-qscale:v",
+            "5",
+            "-c:a",
+            "libmp3lame",
+            "-qscale:a",
+            "4",
+            str(out_path),
+        ]
+    else:
+        raise ValueError(f"Unsupported output format: {output_format}")
 
     if not quiet:
         print("\nRunning:", " ".join(cmd))
@@ -103,26 +127,39 @@ def iter_input_files(path: str, recursive: bool) -> list[Path]:
     return files
 
 
-def build_output_path(input_path: Path, output_dir: Path | None) -> Path:
+def build_output_path(
+    input_path: Path, output_dir: Path | None, output_format: str = "mp3"
+) -> Path:
     base = input_path.stem
+    ext = ".mp3" if output_format == "mp3" else ".avi"
     if output_dir:
-        return output_dir / f"{base}.mp3"
-    return input_path.with_suffix(".mp3")
+        return output_dir / f"{base}{ext}"
+    return input_path.with_suffix(ext)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Convert MP4 files to MP3 using ffmpeg"
+        description="Convert MP4 files to MP3 or AVI using ffmpeg"
     )
     parser.add_argument(
         "input", help="Input file, directory, or glob pattern (e.g., '*.mp4')"
     )
     parser.add_argument("-o", "--output", help="Output directory (optional)")
     parser.add_argument(
-        "-b", "--bitrate", default="192k", help="Audio bitrate (default: 192k)"
+        "-F",
+        "--format",
+        choices=["mp3", "avi"],
+        default="mp3",
+        help="Output format: mp3 (audio) or avi (video) (default: mp3)",
     )
     parser.add_argument(
-        "-f", "--force", action="store_true", help="Overwrite existing MP3 files"
+        "-b",
+        "--bitrate",
+        default="192k",
+        help="Audio bitrate when outputting mp3 (default: 192k)",
+    )
+    parser.add_argument(
+        "-f", "--force", action="store_true", help="Overwrite existing output files"
     )
     parser.add_argument(
         "-r", "--recursive", action="store_true", help="Search directories recursively"
@@ -151,10 +188,15 @@ def main() -> int:
     failed = 0
 
     for in_fp in files:
-        out_fp = build_output_path(in_fp, output_dir)
+        out_fp = build_output_path(in_fp, output_dir, output_format=args.format)
         try:
             ok = convert_file(
-                in_fp, out_fp, bitrate=args.bitrate, force=args.force, quiet=args.quiet
+                in_fp,
+                out_fp,
+                bitrate=args.bitrate,
+                force=args.force,
+                quiet=args.quiet,
+                output_format=args.format,
             )
             if ok:
                 success += 1

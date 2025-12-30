@@ -1,6 +1,6 @@
-# MP4 -> MP3 Converter 🔧
+# MP4 -> MP3 / AVI Converter 🔧
 
-A small command-line Python script to convert MP4 video files to MP3 audio using ffmpeg.
+A small command-line Python script to convert MP4 video files to MP3 audio or re-encode to AVI using ffmpeg.
 
 ## Features ✅
 - Convert a single file, a directory, or use glob patterns
@@ -18,10 +18,16 @@ Windows: download a build from https://ffmpeg.org/download.html and add the `bin
 
 ## Usage 🔊
 
-Basic single file:
+Basic single file (MP3 output):
 
 ```
 python mp4_to_mp3.py "video.mp4"
+```
+
+Convert to AVI (video re-encode):
+
+```
+python mp4_to_mp3.py "video.mp4" -F avi
 ```
 
 Convert all mp4 in a directory (non-recursive):
@@ -36,7 +42,7 @@ Convert recursively and put output in `out/` directory:
 python mp4_to_mp3.py "./videos" -r -o ./out
 ```
 
-Set bitrate and force overwrite:
+Set bitrate (only for MP3 output) and force overwrite:
 
 ```
 python mp4_to_mp3.py "video.mp4" -b 256k -f
