@@ -15,35 +15,59 @@ param(
     [string]$FFmpegZip = ""
 )
 
-set -e
+$ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Push-Location $ScriptDir
+Write-Host "Starting build in $ScriptDir"
 
-# Create venv
+# Create or reuse venv
 $Venv = Join-Path $ScriptDir "venv_build"
 if (-not (Test-Path $Venv)) {
+    Write-Host "Creating virtual environment at $Venv..."
     python -m venv $Venv
 }
 $Activate = Join-Path $Venv "Scripts\Activate.ps1"
+if (-not (Test-Path $Activate)) {
+    Write-Error "Activation script not found: $Activate. Ensure Python is installed and 'python -m venv $Venv' succeeded."
+    Pop-Location
+    exit 1
+}
 . $Activate
-pip install --upgrade pip
-pip install pyinstaller
+
+Write-Host "Upgrading pip and ensuring PyInstaller is installed..."
+& python -m pip install --upgrade pip
+& python -m pip install pyinstaller
 
 # Build
-$PyInstallerArgs = "--onefile --name $(Split-Path -LeafBase $Name) mp4_to_mp3.py"
-if ($Icon -ne "") { $PyInstallerArgs += " --icon `"$Icon`"" }
-Write-Host "Running: pyinstaller $PyInstallerArgs"
-pyinstaller --onefile --name (Split-Path -LeafBase $Name) mp4_to_mp3.py --noconfirm
+$NameBase = [System.IO.Path]::GetFileNameWithoutExtension($Name)
+$PyInstallerArgs = @("--onefile","--name",$NameBase,"mp4_to_mp3.py","--noconfirm")
+if ($Icon -ne "") { $PyInstallerArgs += @("--icon", $Icon) }
+Write-Host "Running: python -m PyInstaller $($PyInstallerArgs -join ' ')"
+$ArgsList = @("-m","PyInstaller") + $PyInstallerArgs
+$proc = Start-Process -FilePath "python" -ArgumentList $ArgsList -NoNewWindow -Wait -PassThru
+if ($null -eq $proc) {
+    Write-Error "Failed to start python process. Ensure 'python' is on PATH or use the py launcher."
+    Pop-Location
+    exit 1
+}
+if ($proc.ExitCode -ne 0) {
+    Write-Error "PyInstaller failed with exit code $($proc.ExitCode)."
+    Pop-Location
+    exit $proc.ExitCode
+}
 
 # Collect output
 $DistDir = Join-Path $ScriptDir 'dist'
-$BuiltExe = Join-Path $DistDir $Name
+$NameExe = $NameBase + '.exe'
+$BuiltExe = Join-Path $DistDir $NameExe
 if (-not (Test-Path $BuiltExe)) {
-    # PyInstaller names the file without .exe when using --name on Windows in some versions
-    $NameNoExt = (Split-Path -LeafBase $Name)
-    $Candidate = Join-Path $DistDir "$NameNoExt.exe"
-    if (Test-Path $Candidate) { Move-Item -Path $Candidate -Destination $BuiltExe -Force }
+    Write-Host "Build did not produce expected $BuiltExe. Contents of dist/:"
+    Get-ChildItem -Path $DistDir -Force -ErrorAction SilentlyContinue
+    Pop-Location
+    exit 2
 }
+
+Write-Host "Build complete. Output: $BuiltExe"
 
 if ($FFmpegZip -ne "") {
     if (-not (Test-Path $FFmpegZip)) {
