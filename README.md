@@ -54,6 +54,33 @@ python mp4_to_mp3.py "video.mp4" -b 256k -f
 
 - If `ffmpeg` isn't found, the script will print an instruction on how to install it.
 
+## Building a Windows .exe release 🧾
+
+You can build a single-file Windows executable using PyInstaller and optionally bundle `ffmpeg.exe` alongside the exe.
+
+Local build (Windows PowerShell):
+
+```
+# creates venv, installs pyinstaller and builds dist\mp4_to_mp3.exe
+./build_exe.ps1
+
+# optionally supply a ZIP containing ffmpeg.exe to bundle it next to the exe
+./build_exe.ps1 -FFmpegZip ./ffmpeg-windows.zip
+```
+
+Convenience (Windows):
+
+```
+build_exe.bat
+```
+
+CI / GitHub Releases
+
+- A GitHub Actions workflow (`.github/workflows/build_release_windows.yml`) is included. Create a tag like `v1.0.0` and push it to create a release.
+- You can optionally trigger the workflow with a `workflow_dispatch` and pass an `ffmpeg_url` input (URL to a Windows ffmpeg ZIP) so the release contains both `mp4_to_mp3.exe` and `ffmpeg.exe`.
+
+**Important:** The exe does not embed `ffmpeg` by default — the release can include `ffmpeg.exe` as a separate file next to the exe so it continues to work out of the box.
+
 
 ## Feedback
 If you'd like a version that installs ffmpeg for you, adds parallel conversions, or includes tests, tell me which you'd prefer and I can add it. 🎯

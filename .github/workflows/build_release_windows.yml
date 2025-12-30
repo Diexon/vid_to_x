@@ -1,0 +1,44 @@
+name: Build and Release Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      ffmpeg_url:
+        description: 'Optional URL to a FFmpeg zip to bundle ffmpeg.exe'
+        required: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+      - name: Build exe
+        run: |
+          pyinstaller --onefile --name mp4_to_mp3 mp4_to_mp3.py --noconfirm
+      - name: Optionally download FFmpeg and copy ffmpeg.exe
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ffmpeg_url != '' }}
+        env:
+          FFMPEG_URL: ${{ github.event.inputs.ffmpeg_url }}
+        run: |
+          echo "Downloading FFmpeg from $FFMPEG_URL"
+          curl -L -o ffmpeg.zip "%FFMPEG_URL%"
+          powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('ffmpeg.zip','ffmpeg_tmp')"
+          powershell -Command "Get-ChildItem -Path ffmpeg_tmp -Filter ffmpeg.exe -Recurse | Select -First 1 | ForEach-Object { Copy-Item $_.FullName -Destination dist }"
+      - name: Create GitHub Release and Upload Artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          files: |
+            dist/mp4_to_mp3.exe
+            dist/ffmpeg.exe
