@@ -18,8 +18,24 @@ from pathlib import Path
 
 
 def find_ffmpeg() -> str | None:
-    """Return the path to ffmpeg executable or None if not found."""
+    """Return the path to ffmpeg executable or None if not found.
+
+    If running inside a PyInstaller one-file bundle, prefer the bundled ffmpeg inside
+    the temporary extraction folder pointed to by `sys._MEIPASS`.
+    """
+    # Check for bundled ffmpeg when running from PyInstaller onefile
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        for name in ("ffmpeg.exe", "ffmpeg"):
+            candidate = Path(meipass) / name
+            if candidate.exists():
+                return str(candidate)
+
+    # Fallback to PATH
     return shutil.which("ffmpeg")
+
+
+__version__ = "1.0.0"
 
 
 def convert_file(
@@ -165,6 +181,12 @@ def parse_args() -> argparse.Namespace:
         "-r", "--recursive", action="store_true", help="Search directories recursively"
     )
     parser.add_argument("-q", "--quiet", action="store_true", help="Minimal output")
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="store_true",
+        help="Print version and detected ffmpeg path and exit",
+    )
     return parser.parse_args()
 
 
@@ -172,9 +194,16 @@ def main() -> int:
     args = parse_args()
 
     ffmpeg = find_ffmpeg()
+
+    # Support a quick self-check
+    if getattr(args, "version", False):
+        print(f"mp4_to_mp3 version: {__version__}")
+        print(f"ffmpeg: {ffmpeg if ffmpeg else '<not found>'}")
+        return 0
+
     if not ffmpeg:
         print(
-            "ffmpeg not found in PATH. On Windows, download from https://ffmpeg.org/download.html and add to PATH."
+            "ffmpeg not found. The bundled exe build attempts to include ffmpeg; if you're running the script directly, install ffmpeg and ensure it's on PATH: https://ffmpeg.org/download.html"
         )
         return 2
 

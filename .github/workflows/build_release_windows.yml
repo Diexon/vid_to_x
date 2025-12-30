@@ -23,22 +23,26 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-      - name: Build exe
+      - name: Download and prepare FFmpeg for bundling
         run: |
-          pyinstaller --onefile --name mp4_to_mp3 mp4_to_mp3.py --noconfirm
-      - name: Optionally download FFmpeg and copy ffmpeg.exe
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ffmpeg_url != '' }}
-        env:
-          FFMPEG_URL: ${{ github.event.inputs.ffmpeg_url }}
-        run: |
+          # Use provided URL or default to a common static build
+          if [ -z "${{ github.event.inputs.ffmpeg_url }}" ]; then
+            export FFMPEG_URL="https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          else
+            export FFMPEG_URL="${{ github.event.inputs.ffmpeg_url }}"
+          fi
           echo "Downloading FFmpeg from $FFMPEG_URL"
-          curl -L -o ffmpeg.zip "%FFMPEG_URL%"
+          curl -L -o ffmpeg.zip "$FFMPEG_URL"
           powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('ffmpeg.zip','ffmpeg_tmp')"
-          powershell -Command "Get-ChildItem -Path ffmpeg_tmp -Filter ffmpeg.exe -Recurse | Select -First 1 | ForEach-Object { Copy-Item $_.FullName -Destination dist }"
+          powershell -Command "Get-ChildItem -Path ffmpeg_tmp -Filter ffmpeg.exe -Recurse | Select -First 1 | ForEach-Object { Write-Host $_.FullName > ffmpeg_path.txt }"
+      - name: Build exe (bundled ffmpeg)
+        run: |
+          FFMPEG_PATH=$(cat ffmpeg_path.txt)
+          echo "Using FFmpeg from: $FFMPEG_PATH"
+          py -3 -m PyInstaller --onefile --add-binary "$FFMPEG_PATH;." --name mp4_to_mp3 mp4_to_mp3.py --noconfirm
       - name: Create GitHub Release and Upload Artifacts
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
           files: |
             dist/mp4_to_mp3.exe
-            dist/ffmpeg.exe

@@ -48,6 +48,12 @@ Set bitrate (only for MP3 output) and force overwrite:
 python mp4_to_mp3.py "video.mp4" -b 256k -f
 ```
 
+Check the tool version and detected ffmpeg path (useful to verify bundled ffmpeg in the exe):
+
+```
+python mp4_to_mp3.py --version
+```
+
 
 ## Notes ⚠️
 - The script calls `ffmpeg` directly via subprocess. If you prefer a Python wrapper, consider using `pydub` or `moviepy` but those still require ffmpeg on the system.
@@ -56,17 +62,21 @@ python mp4_to_mp3.py "video.mp4" -b 256k -f
 
 ## Building a Windows .exe release 🧾
 
-You can build a single-file Windows executable using PyInstaller and optionally bundle `ffmpeg.exe` alongside the exe.
+You can build a single-file Windows executable using PyInstaller. By default the build **attempts to embed** a Windows `ffmpeg.exe` binary into the one-file exe so the resulting `mp4_to_mp3.exe` is standalone (no external ffmpeg required).
 
 Local build (Windows PowerShell):
 
 ```
 # creates venv, installs pyinstaller and builds dist\mp4_to_mp3.exe
+# If no ffmpeg is found on PATH the script will download a default ffmpeg ZIP and embed it.
 ./build_exe.ps1
 
-# optionally supply a ZIP containing ffmpeg.exe to bundle it next to the exe
+# you can also supply a ZIP containing ffmpeg.exe to bundle it into the exe explicitly
 ./build_exe.ps1 -FFmpegZip ./ffmpeg-windows.zip
 ```
+
+**Licensing note:** ffmpeg is distributed under GPL/LGPL. Bundling ffmpeg into your executable may have licensing implications — be sure to include appropriate notices and comply with ffmpeg's license when distributing the bundled executable.
+
 
 Convenience (Windows):
 
