@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""mp4_to_mp3.py
+
+Simple command-line tool to convert MP4 files to MP3 using ffmpeg.
+
+No Python packages required — ffmpeg must be installed and available in PATH.
+"""
+
+from __future__ import annotations
+
+import argparse
+import glob
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+
+def find_ffmpeg() -> str | None:
+    """Return the path to ffmpeg executable or None if not found."""
+    return shutil.which("ffmpeg")
+
+
+def convert_file(
+    in_path: Path,
+    out_path: Path,
+    bitrate: str = "192k",
+    force: bool = False,
+    quiet: bool = False,
+) -> bool:
+    ffmpeg = find_ffmpeg()
+    if not ffmpeg:
+        raise EnvironmentError(
+            "ffmpeg not found in PATH. Install ffmpeg and try again."
+        )
+
+    if out_path.exists() and not force:
+        if not quiet:
+            print(f"Skipping existing: {out_path}")
+        return False
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        ffmpeg,
+        "-hide_banner",
+        "-loglevel",
+        "error" if quiet else "info",
+        # overwrite behavior
+        "-y" if force else "-n",
+        "-i",
+        str(in_path),
+        "-vn",  # drop video
+        "-ab",
+        bitrate,
+        str(out_path),
+    ]
+
+    if not quiet:
+        print("\nRunning:", " ".join(cmd))
+
+    proc = subprocess.run(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    if proc.returncode != 0:
+        if not quiet:
+            print(f"Error converting {in_path} -> {out_path}")
+            print(proc.stderr.strip())
+        return False
+
+    if not quiet:
+        print(f"Converted: {in_path} -> {out_path}")
+    return True
+
+
+def iter_input_files(path: str, recursive: bool) -> list[Path]:
+    p = Path(path)
+    files: list[Path] = []
+
+    if p.is_file():
+        files.append(p)
+        return files
+
+    # treat as glob or directory
+    if any(ch in path for ch in "*?["):
+        files = [
+            Path(fp)
+            for fp in glob.glob(path, recursive=recursive)
+            if Path(fp).suffix.lower() == ".mp4"
+        ]
+    elif p.is_dir():
+        pattern = "**/*.mp4" if recursive else "*.mp4"
+        files = list(p.glob(pattern))
+    else:
+        # try to expand as glob
+        files = [
+            Path(fp)
+            for fp in glob.glob(path, recursive=recursive)
+            if Path(fp).suffix.lower() == ".mp4"
+        ]
+
+    return files
+
+
+def build_output_path(input_path: Path, output_dir: Path | None) -> Path:
+    base = input_path.stem
+    if output_dir:
+        return output_dir / f"{base}.mp3"
+    return input_path.with_suffix(".mp3")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Convert MP4 files to MP3 using ffmpeg"
+    )
+    parser.add_argument(
+        "input", help="Input file, directory, or glob pattern (e.g., '*.mp4')"
+    )
+    parser.add_argument("-o", "--output", help="Output directory (optional)")
+    parser.add_argument(
+        "-b", "--bitrate", default="192k", help="Audio bitrate (default: 192k)"
+    )
+    parser.add_argument(
+        "-f", "--force", action="store_true", help="Overwrite existing MP3 files"
+    )
+    parser.add_argument(
+        "-r", "--recursive", action="store_true", help="Search directories recursively"
+    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="Minimal output")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+
+    ffmpeg = find_ffmpeg()
+    if not ffmpeg:
+        print(
+            "ffmpeg not found in PATH. On Windows, download from https://ffmpeg.org/download.html and add to PATH."
+        )
+        return 2
+
+    files = iter_input_files(args.input, args.recursive)
+    if not files:
+        print("No MP4 files found for the given input.")
+        return 1
+
+    output_dir = Path(args.output) if args.output else None
+    success = 0
+    failed = 0
+
+    for in_fp in files:
+        out_fp = build_output_path(in_fp, output_dir)
+        try:
+            ok = convert_file(
+                in_fp, out_fp, bitrate=args.bitrate, force=args.force, quiet=args.quiet
+            )
+            if ok:
+                success += 1
+            else:
+                failed += 1
+        except Exception as e:
+            if not args.quiet:
+                print(f"Failed: {in_fp} -> {e}")
+            failed += 1
+
+    if not args.quiet:
+        print(f"\nSummary: {success} succeeded, {failed} failed")
+
+    return 0 if success > 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

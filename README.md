@@ -1,0 +1,53 @@
+# MP4 -> MP3 Converter 🔧
+
+A small command-line Python script to convert MP4 video files to MP3 audio using ffmpeg.
+
+## Features ✅
+- Convert a single file, a directory, or use glob patterns
+- Optional recursive directory traversal
+- Set audio bitrate and control overwriting
+- No Python dependencies — uses `ffmpeg` (must be installed)
+
+
+## Requirements 💡
+- Python 3.7+
+- ffmpeg available in your PATH (not a Python package)
+
+Windows: download a build from https://ffmpeg.org/download.html and add the `bin` folder containing `ffmpeg.exe` to your PATH.
+
+
+## Usage 🔊
+
+Basic single file:
+
+```
+python mp4_to_mp3.py "video.mp4"
+```
+
+Convert all mp4 in a directory (non-recursive):
+
+```
+python mp4_to_mp3.py "./videos"
+```
+
+Convert recursively and put output in `out/` directory:
+
+```
+python mp4_to_mp3.py "./videos" -r -o ./out
+```
+
+Set bitrate and force overwrite:
+
+```
+python mp4_to_mp3.py "video.mp4" -b 256k -f
+```
+
+
+## Notes ⚠️
+- The script calls `ffmpeg` directly via subprocess. If you prefer a Python wrapper, consider using `pydub` or `moviepy` but those still require ffmpeg on the system.
+
+- If `ffmpeg` isn't found, the script will print an instruction on how to install it.
+
+
+## Feedback
+If you'd like a version that installs ffmpeg for you, adds parallel conversions, or includes tests, tell me which you'd prefer and I can add it. 🎯

@@ -1,0 +1,10 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Mac / Windows
+.DS_Store
+Thumbs.db
+
+# Optional mp3 outputs
+*.mp3
